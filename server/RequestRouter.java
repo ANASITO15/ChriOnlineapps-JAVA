@@ -1,22 +1,32 @@
 package server;
 
 import common.Message;
+import services.AuthService;
 
 public class RequestRouter {
 
-    public static Message route(Message request) {
+    public static Message route(Message message) {
 
-        if (request.type == null) {
-            return Message.error("UNKNOWN", request.requestId, "INVALID_REQUEST", "Type missing");
+        if(message == null) {
+            return new Message("ERROR","0","ERROR","","NULL_MESSAGE");
         }
 
-        switch (request.type) {
+        switch(message.getType()) {
 
-            case "PING":
-                return Message.ok("PING", request.requestId, "pong");
+            case "LOGIN":
+                return AuthService.login(message);
+
+            case "REGISTER":
+                return AuthService.register(message);
 
             default:
-                return Message.error(request.type, request.requestId, "UNKNOWN_COMMAND", "Command not supported");
+                return new Message(
+                        message.getType(),
+                        message.getRequestId(),
+                        "ERROR",
+                        "",
+                        "UNKNOWN_REQUEST"
+                );
         }
     }
 }
