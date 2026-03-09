@@ -1,15 +1,28 @@
 package services;
 
+import common.Message;
+
 public class AuthService {
 
-    public boolean login(String username, String password) {
+    public static Message login(Message request) {
 
-        // simulation login
-        if(username.equals("admin") && password.equals("1234")){
-            return true;
-        }
-
-        return false;
+        return new Message(
+                "LOGIN",
+                request.getRequestId(),
+                "SUCCESS",
+                "User logged in",
+                ""
+        );
     }
 
+    public static Message register(Message request) {
+
+        return new Message(
+                "REGISTER",
+                request.getRequestId(),
+                "SUCCESS",
+                "User registered",
+                ""
+        );
+    }
 }
