@@ -68,5 +68,10 @@ public class TestClient {
             this.id = id;
             this.stock = stock;
         }
+
+        @Override
+        public String toString() {
+            return "StockUpdatePayload{id='" + id + "', stock=" + stock + '}';
+        }
     }
 }
