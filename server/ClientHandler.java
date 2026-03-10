@@ -1,8 +1,6 @@
 package server;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 
 import common.Message;
@@ -21,30 +19,29 @@ public class ClientHandler implements Runnable {
 
         try {
 
-            BufferedReader input =
-                    new BufferedReader(
-                            new InputStreamReader(socket.getInputStream()));
-
-            PrintWriter output =
-                    new PrintWriter(socket.getOutputStream(), true);
+            DataInputStream input = new DataInputStream(socket.getInputStream());
+            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 
             System.out.println("Handler started for : " + socket.getInetAddress());
 
-            String request;
+            while(true) {
 
-            while((request = input.readLine()) != null) {
+                int len = input.readInt();  // Read length
+                byte[] data = new byte[len];
+                input.readFully(data);
 
-                System.out.println("Request received : " + request);
+                System.out.println("Request received : " + data.length + " bytes");
 
-                Message message = JsonUtil.fromJson(request);
+                Message message = JsonUtil.fromBinary(data, Message.class);
 
                 Message response = RequestRouter.route(message);
 
-                String jsonResponse = JsonUtil.toJson(response);
+                byte[] respData = JsonUtil.toBinary(response);
+                output.writeInt(respData.length);  // Send length first
+                output.write(respData);
+                output.flush();
 
-                System.out.println("Response sent : " + jsonResponse);
-
-                output.println(jsonResponse);
+                System.out.println("Response sent : " + respData.length + " bytes");
             }
 
         } catch(Exception e) {

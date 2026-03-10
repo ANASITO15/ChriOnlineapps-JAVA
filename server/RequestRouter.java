@@ -2,6 +2,7 @@ package server;
 
 import common.Message;
 import services.AuthService;
+import services.ProductService;
 
 public class RequestRouter {
 
@@ -27,6 +28,15 @@ public class RequestRouter {
 
             case "REGISTER":
                 return AuthService.register(message);
+
+            case "PRODUCT_LIST":
+                return ProductService.list(message);
+
+            case "PRODUCT_DETAILS":
+                return ProductService.details(message);
+
+            case "STOCK_UPDATE":
+                return ProductService.updateStock(message);
 
             default:
                 return new Message(

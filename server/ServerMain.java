@@ -7,7 +7,7 @@ public class ServerMain {
 
     public static void main(String[] args) {
 
-        int port = 6000;
+        int port = 9999;
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
 

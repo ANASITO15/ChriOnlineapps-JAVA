@@ -1,0 +1,64 @@
+// Source code is decompiled from a .class file using FernFlower decompiler (from Intellij IDEA).
+package client;
+
+import common.JsonUtil;
+import common.Message;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.PrintStream;
+import java.io.Serializable;
+import java.net.Socket;
+import java.util.Base64;
+
+public class TestClient {
+   public TestClient() {
+   }
+
+   public static void main(String[] var0) {
+      System.out.println("Starting client");
+
+      try {
+         Socket var1 = new Socket("localhost", 9999);
+         System.out.println("Connected to server");
+         DataInputStream var2 = new DataInputStream(var1.getInputStream());
+         DataOutputStream var3 = new DataOutputStream(var1.getOutputStream());
+         sendMessage(var3, var2, Message.request("PING", "1", ""));
+         sendMessage(var3, var2, Message.request("LOGIN", "2", ""));
+         sendMessage(var3, var2, Message.request("REGISTER", "3", ""));
+         sendMessage(var3, var2, Message.request("PRODUCT_LIST", "4", ""));
+         sendMessage(var3, var2, Message.request("PRODUCT_DETAILS", "5", "001"));
+         byte[] var4 = JsonUtil.toBinary(new StockUpdatePayload("001", 75));
+         String var5 = Base64.getEncoder().encodeToString(var4);
+         sendMessage(var3, var2, Message.request("STOCK_UPDATE", "6", var5));
+         sendMessage(var3, var2, Message.request("PRODUCT_DETAILS", "7", "001"));
+         var1.close();
+      } catch (Exception var6) {
+         var6.printStackTrace();
+      }
+
+   }
+
+   private static void sendMessage(DataOutputStream var0, DataInputStream var1, Message var2) throws Exception {
+      byte[] var3 = JsonUtil.toBinary(var2);
+      var0.writeInt(var3.length);
+      var0.write(var3);
+      var0.flush();
+      int var4 = var1.readInt();
+      byte[] var5 = new byte[var4];
+      var1.readFully(var5);
+      Message var6 = (Message)JsonUtil.fromBinary(var5, Message.class);
+      PrintStream var10000 = System.out;
+      String var10001 = String.valueOf(var2);
+      var10000.println("Sent: " + var10001 + "  Received: " + String.valueOf(var6));
+   }
+
+   private static class StockUpdatePayload implements Serializable {
+      public String id;
+      public int stock;
+
+      public StockUpdatePayload(String var1, int var2) {
+         this.id = var1;
+         this.stock = var2;
+      }
+   }
+}

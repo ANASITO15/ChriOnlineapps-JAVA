@@ -1,9 +1,8 @@
 package client;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
+import java.util.Base64;
 
 import common.Message;
 import common.JsonUtil;
@@ -12,38 +11,62 @@ public class TestClient {
 
     public static void main(String[] args) {
 
+        System.out.println("Starting client");
+
         try {
 
             // connexion au serveur
-            Socket socket = new Socket("localhost", 6000);
+            Socket socket = new Socket("localhost", 9999);
 
             System.out.println("Connected to server");
 
-            BufferedReader input =
-                    new BufferedReader(
-                            new InputStreamReader(socket.getInputStream()));
+            DataInputStream input = new DataInputStream(socket.getInputStream());
+            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
 
-            PrintWriter output =
-                    new PrintWriter(socket.getOutputStream(), true);
+                // ping example
+                sendMessage(output, input, Message.request("PING", "1", ""));
 
-            // création message PING
-            Message message = Message.request("PING", "1", "");
+                // auth examples (just to show usage)
+                sendMessage(output, input, Message.request("LOGIN", "2", ""));
+                sendMessage(output, input, Message.request("REGISTER", "3", ""));
 
-            // convertir en JSON
-            String json = JsonUtil.toJson(message);
-
-            // envoyer au serveur
-            output.println(json);
-
-            // lire la réponse
-            String response = input.readLine();
-
-            System.out.println("Server response : " + response);
+                // product examples
+                sendMessage(output, input, Message.request("PRODUCT_LIST", "4", ""));
+                sendMessage(output, input, Message.request("PRODUCT_DETAILS", "5", "001"));
+                // update stock for product 001 to 75
+                byte[] payloadData = JsonUtil.toBinary(new StockUpdatePayload("001", 75));
+                String payload = Base64.getEncoder().encodeToString(payloadData);
+                sendMessage(output, input, Message.request("STOCK_UPDATE", "6", payload));
+                sendMessage(output, input, Message.request("PRODUCT_DETAILS", "7", "001"));
 
             socket.close();
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void sendMessage(DataOutputStream output, DataInputStream input, Message msg) throws Exception {
+        byte[] data = JsonUtil.toBinary(msg);
+        output.writeInt(data.length);  // Send length first
+        output.write(data);
+        output.flush();
+
+        int len = input.readInt();  // Read length
+        byte[] respData = new byte[len];
+        input.readFully(respData);
+        Message resp = JsonUtil.fromBinary(respData, Message.class);
+        System.out.println("Sent: " + msg + "  Received: " + resp);
+    }
+
+    // helper for stock update payload
+    private static class StockUpdatePayload implements Serializable {
+        public String id;
+        public int stock;
+
+        public StockUpdatePayload(String id, int stock) {
+            this.id = id;
+            this.stock = stock;
         }
     }
 }
