@@ -1,6 +1,10 @@
 package common;
 
 import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class JsonUtil {
 
@@ -42,35 +46,60 @@ public class JsonUtil {
 
         Message m = new Message();
 
-        m.setType(getValue(json, "type"));
-        m.setRequestId(getValue(json, "requestId"));
-        m.setStatus(getValue(json, "status"));
-        m.setPayload(getValue(json, "payload"));
-        m.setErrorCode(getValue(json, "errorCode"));
+        Map<String, String> map = toMap(json);
+
+        m.setType(map.getOrDefault("type", ""));
+        m.setRequestId(map.getOrDefault("requestId", ""));
+        m.setStatus(map.getOrDefault("status", ""));
+        m.setPayload(map.getOrDefault("payload", ""));
+        m.setErrorCode(map.getOrDefault("errorCode", ""));
 
         return m;
     }
 
+    // =============================
+    // JSON → Map parser (robust)
+    // =============================
+    public static Map<String, String> toMap(String json) {
+        Map<String, String> map = new HashMap<>();
+
+        if (json == null || json.isEmpty()) {
+            return map;
+        }
+
+        json = json.trim();
+
+        if (json.startsWith("{") && json.endsWith("}")) {
+            json = json.substring(1, json.length() - 1).trim();
+        }
+
+        if (json.isEmpty()) {
+            return map;
+        }
+
+        // Pattern for string key/value pairs, handles escaped quotes and values with ':' or ','
+        Pattern pairPattern = Pattern.compile("\\\"([^\\\\\"]*)\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\\\\\"])*?)\\\"");
+        Matcher matcher = pairPattern.matcher(json);
+
+        while (matcher.find()) {
+            String key = unescape(matcher.group(1));
+            String value = unescape(matcher.group(2));
+            map.put(key, value);
+        }
+
+        return map;
+    }
+
     // Fonction pour extraire une valeur JSON
     private static String getValue(String json, String key) {
-
-        String search = "\"" + key + "\":\"";
-
-        int start = json.indexOf(search);
-
-        if (start == -1) {
-            return "";
+        if (json == null || json.isEmpty() || key == null || key.isEmpty()) {
+            return null;
         }
-
-        start = start + search.length();
-
-        int end = json.indexOf("\"", start);
-
-        if (end == -1) {
-            return "";
+        Map<String, String> map = toMap(json);
+        if (!map.containsKey(key)) {
+            return null;
         }
-
-        return json.substring(start, end);
+        return map.get(key);
     }
 
     // Évite les valeurs null
@@ -78,18 +107,136 @@ public class JsonUtil {
         return value == null ? "" : value;
     }
 
-    public static String toJson(Object obj) {
-        // Simple implementation for basic objects; extend for lists/POJOs if needed
-        if (obj instanceof String) {
-            return "\"" + obj + "\"";
+    private static String unescape(String value) {
+        if (value == null) {
+            return "";
         }
-        // For now, assume obj is a POJO or list; use reflection or a lib like Gson
-        // Placeholder: return a basic JSON string
-        return "{}"; // Replace with proper serialization
+        return value.replace("\\\"", "\"")
+                    .replace("\\n", "\n")
+                    .replace("\\r", "\r")
+                    .replace("\\t", "\t");
     }
 
-    public static <T> T fromJson(String json, Class<T> clazz) {
-        // Placeholder: not implemented for binary switch
-        return null;
+    private static String escape(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r")
+                    .replace("\t", "\\t");
     }
+
+    private static String unquote(String value) {
+        if (value == null) {
+            return null;
+        }
+        value = value.trim();
+        if (value.startsWith("\"") && value.endsWith("\"")) {
+            value = value.substring(1, value.length() - 1);
+        }
+        return unescape(value);
+    }
+
+    public static String toJson(Object obj) {
+        if (obj == null) {
+            return "null";
+        }
+        if (obj instanceof String) {
+            return "\"" + escape((String) obj) + "\"";
+        }
+        if (obj instanceof Number || obj instanceof Boolean) {
+            return obj.toString();
+        }
+        if (obj instanceof Message) {
+            return toJson((Message) obj);
+        }
+        if (obj instanceof Map<?, ?>) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("{");
+            boolean first = true;
+            for (java.util.Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                if (!first) sb.append(",");
+                first = false;
+                sb.append(toJson(entry.getKey() == null ? "" : entry.getKey().toString()));
+                sb.append(":");
+                sb.append(toJson(entry.getValue()));
+            }
+            sb.append("}");
+            return sb.toString();
+        }
+        if (obj instanceof Iterable) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("[");
+            boolean first = true;
+            for (Object item : (Iterable<?>) obj) {
+                if (!first) sb.append(",");
+                first = false;
+                sb.append(toJson(item));
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+        // Fallback for objects
+        return "\"" + escape(obj.toString()) + "\"";
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T fromJson(String json, Class<T> clazz) {
+        if (json == null || json.isEmpty()) {
+            return null;
+        }
+        String trimmed = json.trim();
+        if (clazz == String.class) {
+            return clazz.cast(unquote(trimmed));
+        }
+        if (clazz == Integer.class || clazz == int.class) {
+            return clazz.cast(Integer.valueOf(trimmed.replaceAll("[\\\"\\s]+", "")));
+        }
+        if (clazz == Long.class || clazz == long.class) {
+            return clazz.cast(Long.valueOf(trimmed.replaceAll("[\\\"\\s]+", "")));
+        }
+        if (clazz == Boolean.class || clazz == boolean.class) {
+            return clazz.cast(Boolean.valueOf(trimmed));
+        }
+        if (clazz == Message.class) {
+            return clazz.cast(fromJson(trimmed));
+        }
+
+        Map<String, String> values = toMap(trimmed);
+        if (values.isEmpty()) {
+            return null;
+        }
+
+        try {
+            T instance = clazz.getDeclaredConstructor().newInstance();
+            for (java.util.Map.Entry<String, String> entry : values.entrySet()) {
+                try {
+                    java.lang.reflect.Field field = clazz.getDeclaredField(entry.getKey());
+                    field.setAccessible(true);
+                    String value = entry.getValue();
+                    Class<?> fieldType = field.getType();
+                    if (fieldType == String.class) {
+                        field.set(instance, value);
+                    } else if (fieldType == int.class || fieldType == Integer.class) {
+                        field.set(instance, Integer.parseInt(value));
+                    } else if (fieldType == long.class || fieldType == Long.class) {
+                        field.set(instance, Long.parseLong(value));
+                    } else if (fieldType == double.class || fieldType == Double.class) {
+                        field.set(instance, Double.parseDouble(value));
+                    } else if (fieldType == boolean.class || fieldType == Boolean.class) {
+                        field.set(instance, Boolean.parseBoolean(value));
+                    } else {
+                        // unsupported nested object types in this simple parser
+                    }
+                } catch (NoSuchFieldException ignored) {
+                }
+            }
+            return instance;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
 }
