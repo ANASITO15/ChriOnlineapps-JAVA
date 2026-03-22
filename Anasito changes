@@ -1,0 +1,29 @@
+Problème
+
+* La méthode `JsonUtil.toJson(Object)` retournait `"{}"`, ce qui envoyait des **payloads vides** entre le client et le serveur.
+* La communication utilisait **`BufferedReader` / `PrintWriter`**, limitée aux chaînes de caractères et incapable de transmettre correctement des objets structurés.
+* Des **imports manquants (`javax.json`)** provoquaient des erreurs de compilation.
+* À cause des payloads vides, les fonctionnalités de **gestion des produits** (liste, détails, mise à jour du stock) ne fonctionnaient pas.
+
+**Solution**
+
+* Remplacement du protocole JSON par un **protocole binaire** utilisant des objets `Serializable`.
+* Création des méthodes `JsonUtil.toBinary()` et `fromBinary()` pour la sérialisation/désérialisation.
+* Passage à **`DataInputStream` / `DataOutputStream` avec des messages préfixés par leur longueur**.
+* Encodage des payloads objets en **Base64** dans le champ `Message.payload`.
+* Ajout de l’architecture de **gestion des produits** :
+
+  * `Product` et `ProductRepository`
+  * `ProductService` avec `list`, `details`, `updateStock`
+  * `RequestRouter` pour router les requêtes liées aux produits.
+
+**Résultats**
+
+* Le projet **compile correctement**.
+* Le client et le serveur peuvent maintenant **échanger de vraies données produits**.
+* Les fonctionnalités suivantes sont opérationnelles :
+
+  * Liste des produits
+  * Détails d’un produit
+  * Mise à jour du stock
+* L’exécution de `ServerMain` puis `TestClient` montre **les requêtes/réponses et la mise à jour du stock en console**.
