@@ -2,14 +2,21 @@ package server;
 
 import common.Message;
 import common.JsonUtil;
+
+import models.Commande;
+import models.Paiement;
+
 import services.AuthService;
 import services.CommandeService;
-import models.Commande;
+import services.PaiementService;
 
 import java.util.List;
 import java.util.Map;
 
 public class RequestRouter {
+
+    // 🔥 SERVICE PAIEMENT
+    private static PaiementService paiementService = new PaiementService();
 
     public static Message route(Message message) {
 
@@ -183,6 +190,46 @@ public class RequestRouter {
 
                     } catch (Exception e) {
                         return error(type, message, "INVALID_PAYLOAD");
+                    }
+
+                // =========================
+                // 🔥 PAYMENT
+                // =========================
+                case "PAYMENT":
+
+                    try {
+                        String payload = message.getPayload();
+
+                        if (payload == null || payload.trim().isEmpty()) {
+                            return error(type, message, "EMPTY_PAYLOAD");
+                        }
+
+                        Map<String, String> data = JsonUtil.toMap(payload);
+
+                        if (data == null || data.isEmpty()) {
+                            return error(type, message, "INVALID_JSON");
+                        }
+
+                        if (!data.containsKey("userId") ||
+                            !data.containsKey("commandeId") ||
+                            !data.containsKey("montant")) {
+                            return error(type, message, "MISSING_FIELDS");
+                        }
+
+                        int userId = Integer.parseInt(data.get("userId"));
+                        int commandeId = Integer.parseInt(data.get("commandeId"));
+                        double montant = Double.parseDouble(data.get("montant"));
+
+                        Paiement paiement = paiementService.processPayment(userId, commandeId, montant);
+
+                        if (paiement != null) {
+                            return success(type, message, paiement.toString());
+                        } else {
+                            return error(type, message, "PAYMENT_FAILED");
+                        }
+
+                    } catch (Exception e) {
+                        return error(type, message, "INVALID_JSON");
                     }
 
                 // =========================
